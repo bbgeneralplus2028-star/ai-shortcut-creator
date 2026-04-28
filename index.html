@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Shortcut Creator</title>
+
+    <!-- Flask static CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <link rel="icon" href="data:image/svg+xml,
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+        <text y='.9em' font-size='90'>⚡</text>
+    </svg>">
+
+    <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>⚡ AI Shortcut Creator</h1>
+
+    <!-- INPUT -->
+    <div class="card">
+        <input id="shortcutName" placeholder="Shortcut Name">
+        <textarea id="shortcutDescription" placeholder="Describe what it should do..."></textarea>
+
+        <button onclick="generateShortcut()" id="generateBtn">
+            Generate Shortcut
+        </button>
+    </div>
+
+    <!-- RESULT -->
+    <div id="resultSection" style="display:none;" class="card">
+        <h2 id="resultName"></h2>
+        <p id="resultMeta"></p>
+
+        <div id="actionList"></div>
+
+        <button onclick="downloadShortcut()">
+            Download .shortcut
+        </button>
+    </div>
+
+</div>
+
+<script>
+
+let currentShortcut = null;
+
+// -------------------------
+// GENERATE SHORTCUT
+// -------------------------
+async function generateShortcut() {
+
+    const name = document.getElementById("shortcutName").value;
+    const description = document.getElementById("shortcutDescription").value;
+
+    if (!description) {
+        alert("Add a description");
+        return;
+    }
+
+    const btn = document.getElementById("generateBtn");
+    btn.innerText = "Generating...";
+
+    try {
+        const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                name,
+                description,
+                icon_color: "blue",
+                icon_glyph: "star"
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "Generation failed");
+
+        currentShortcut = data;
+
+        renderResult(data);
+
+    } catch (err) {
+        alert(err.message);
+    }
+
+    btn.innerText = "Generate Shortcut";
+}
+
+// -------------------------
+// RENDER RESULT
+// -------------------------
+function renderResult(data) {
+
+    document.getElementById("resultSection").style.display = "block";
+
+    document.getElementById("resultName").innerText = data.name;
+
+    document.getElementById("resultMeta").innerText =
+        `${data.actions.length} actions • ready to install`;
+
+    const list = document.getElementById("actionList");
+
+    list.innerHTML = data.actions.map(a =>
+        `<div>⚙️ ${a.label}</div>`
+    ).join("");
+
+}
+
+// -------------------------
+// DOWNLOAD FILE
+// -------------------------
+async function downloadShortcut() {
+
+    if (!currentShortcut) {
+        alert("No shortcut generated");
+        return;
+    }
+
+    const res = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            shortcut_base64: currentShortcut.shortcut_base64,
+            name: currentShortcut.name
+        })
+    });
+
+    if (!res.ok) {
+        alert("Download failed");
+        return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = currentShortcut.name + ".shortcut";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+}
+
+</script>
+
+</body>
+</html>
